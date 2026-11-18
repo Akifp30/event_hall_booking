@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "494482757726",
+    "project_id": "eventhallbooking-830d1",
+    "storage_bucket": "eventhallbooking-830d1.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:494482757726:android:9282e6492867f403fb3ccf",
+        "android_client_info": {
+          "package_name": "com.example.event_hall_booking"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA0rti81L_n9A6UFbhOFMuge__HTgmHwus"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
