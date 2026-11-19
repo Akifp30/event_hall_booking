@@ -33,6 +33,9 @@ class Booking {
   final double hallPrice;
   final double totalPrice;
   final String status; // 'confirmed' | 'cancelled'
+  final double amountPaid;
+  final String paymentMethod;
+  final String transactionId;
   final DateTime? createdAt;
 
   const Booking({
@@ -48,10 +51,23 @@ class Booking {
     required this.hallPrice,
     required this.totalPrice,
     this.status = 'confirmed',
+    this.amountPaid = 0,
+    this.paymentMethod = '',
+    this.transactionId = '',
     this.createdAt,
   });
 
   bool get isCancelled => status == 'cancelled';
+  double get balance => totalPrice - amountPaid;
+  bool get needsPayment => !isCancelled && balance > 0.009;
+
+  String get paymentLabel {
+    if (isCancelled) return amountPaid > 0 ? 'Refund ${rm(amountPaid)}' : 'Not paid';
+    if (amountPaid <= 0) return 'Unpaid';
+    if (balance > 0.009) return 'Balance due ${rm(balance)}';
+    if (balance < -0.009) return 'Paid - refund ${rm(-balance)} due';
+    return 'Paid';
+  }
 
   /// Upcoming = not cancelled and the event date is today or later.
   bool get isUpcoming => !isCancelled && date.compareTo(todayKey()) >= 0;
@@ -76,6 +92,9 @@ class Booking {
       hallPrice: (m['hallPrice'] as num?)?.toDouble() ?? 0,
       totalPrice: (m['totalPrice'] as num?)?.toDouble() ?? 0,
       status: (m['status'] ?? 'confirmed') as String,
+      amountPaid: (m['amountPaid'] as num?)?.toDouble() ?? 0,
+      paymentMethod: (m['paymentMethod'] ?? '') as String,
+      transactionId: (m['transactionId'] ?? '') as String,
       createdAt: ts is Timestamp ? ts.toDate() : null,
     );
   }
@@ -92,5 +111,8 @@ class Booking {
         'hallPrice': hallPrice,
         'totalPrice': totalPrice,
         'status': status,
+    'amountPaid' : amountPaid,
+    'paymentMethod' : paymentMethod,
+    'transactionId' : transactionId,
       };
 }

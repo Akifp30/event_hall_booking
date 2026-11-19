@@ -29,7 +29,7 @@ class _AdminBookingsScreenState extends State<AdminBookingsScreen> {
     );
     if (!ok || !mounted) return;
     try {
-      await context.read<FirestoreService>().cancelBooking(b.id, by: 'admin');
+      await context.read<FirestoreService>().cancelBooking(b, by: 'admin');
       if (mounted) showSnack(context, 'Booking cancelled.');
     } catch (e) {
       if (mounted) showSnack(context, 'Failed: $e');
@@ -103,7 +103,7 @@ class _AdminBookingsScreenState extends State<AdminBookingsScreen> {
                           });
                           return;
                         }
-                        await db.rescheduleBooking(b.id, date: key, timeSlot: slot);
+                        await db.rescheduleBooking(b, date: key, timeSlot: slot);
                         if (ctx.mounted) Navigator.pop(ctx, true);
                       },
                 child: const Text('Save'),

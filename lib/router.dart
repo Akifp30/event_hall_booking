@@ -10,6 +10,7 @@ import 'screens/auth/login_screen.dart';
 import 'screens/auth/register_screen.dart';
 import 'screens/guest/guest_home_screen.dart';
 import 'screens/guest/hall_detail_screen.dart';
+import 'screens/notifications_screen.dart';
 import 'screens/user/booking_addons_screen.dart';
 import 'screens/user/booking_date_screen.dart';
 import 'screens/user/booking_summary_screen.dart';
@@ -31,6 +32,7 @@ GoRouter createRouter(AuthService auth) {
       final needsLogin = loc.startsWith('/home') ||
           loc.startsWith('/book') ||
           loc.startsWith('/my-bookings') ||
+          loc.startsWith('/notifications') ||
           loc.startsWith('/admin');
 
       if (!loggedIn && needsLogin) return '/login';
@@ -57,6 +59,7 @@ GoRouter createRouter(AuthService auth) {
       GoRoute(path: '/book/addons', builder: (context, state) => const BookingAddonsScreen()),
       GoRoute(path: '/book/summary', builder: (context, state) => const BookingSummaryScreen()),
       GoRoute(path: '/my-bookings', builder: (context, state) => const MyBookingsScreen()),
+      GoRoute(path: '/notifications', builder: (context, state) => const NotificationsScreen()),
 
       // Admin
       GoRoute(path: '/admin', builder: (context, state) => const AdminDashboardScreen()),

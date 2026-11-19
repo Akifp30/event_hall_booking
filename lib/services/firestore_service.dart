@@ -1,9 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/addon.dart';
+import '../models/app_notification.dart';
 import '../models/app_user.dart';
 import '../models/booking.dart';
 import '../models/hall.dart';
+import '../utils/format.dart';
 
 /// All database reads/writes for the app (Cloud Firestore).
 ///
@@ -11,7 +13,8 @@ import '../models/hall.dart';
 ///   users     - account profile + role
 ///   halls     - hall information
 ///   addons    - add-on services
-///   bookings  - hall bookings
+///   bookings  - hall bookings (incl. demo payment info)
+///   notifications - in-app notices for users and admins
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
@@ -19,6 +22,7 @@ class FirestoreService {
   CollectionReference<Map<String, dynamic>> get _addons => _db.collection('addons');
   CollectionReference<Map<String, dynamic>> get _bookings => _db.collection('bookings');
   CollectionReference<Map<String, dynamic>> get _users => _db.collection('users');
+  CollectionReference<Map<String, dynamic>> get _notifications => _db.collection('notifications');
 
   // ---------------------------------------------------------------- Halls
 
@@ -66,32 +70,123 @@ class FirestoreService {
         .toSet();
   }
 
-  Future<void> createBooking(Booking b) =>
-      _bookings.add({...b.toMap(), 'createdAt': FieldValue.serverTimestamp()});
+  Stream<Booking?> bookingStream(String id) =>
+      _bookings.doc(id).snapshots().map((d) => d.exists ? Booking.fromDoc(d) : null);
+
+  /// Creates a booking and notifies the user and admins. Returns the new id.
+  Future<String> createBooking(Booking b) async {
+    final ref = await _bookings.add({...b.toMap(), 'createdAt': FieldValue.serverTimestamp()});
+    await notify(
+      userId: b.userId,
+      title: 'Booking confirmed',
+      body: '${b.hallName} on ${prettyDate(b.date)}, ${b.timeSlot}.',
+      type: 'booking',
+      bookingId: ref.id,
+    );
+    await notify(
+      userId: adminsInbox,
+      title: 'New booking',
+      body: '${b.userName} booked ${b.hallName} on ${prettyDate(b.date)}.',
+      type: 'booking',
+      bookingId: ref.id,
+    );
+    return ref.id;
+  }
 
   /// User edits: date, time, add-ons and the recalculated price.
-  Future<void> updateBooking(Booking b) => _bookings.doc(b.id).update({
-        'date': b.date,
-        'timeSlot': b.timeSlot,
-        'addons': b.addons.map((a) => a.toMap()).toList(),
-        'hallPrice': b.hallPrice,
-        'totalPrice': b.totalPrice,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+  Future<void> updateBooking(Booking b) async {
+    await _bookings.doc(b.id).update({
+      'date': b.date,
+      'timeSlot': b.timeSlot,
+      'addons': b.addons.map((a) => a.toMap()).toList(),
+      'hallPrice': b.hallPrice,
+      'totalPrice': b.totalPrice,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+    await notify(
+      userId: b.userId,
+      title: 'Booking updated',
+      body: '${b.hallName}: ${prettyDate(b.date)}, ${b.timeSlot}. New total ${rm(b.totalPrice)}.',
+      type: 'booking',
+      bookingId: b.id,
+    );
+    await notify(
+      userId: adminsInbox,
+      title: 'Booking updated by customer',
+      body: '${b.userName} changed their booking for ${b.hallName}.',
+      type: 'booking',
+      bookingId: b.id,
+    );
+  }
 
   /// Admin edits: reschedule date / time.
-  Future<void> rescheduleBooking(String id, {required String date, required String timeSlot}) =>
-      _bookings.doc(id).update({
-        'date': date,
-        'timeSlot': timeSlot,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+  Future<void> rescheduleBooking(Booking b, {required String date, required String timeSlot}) async {
+    await _bookings.doc(b.id).update({
+      'date': date,
+      'timeSlot': timeSlot,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+    await notify(
+      userId: b.userId,
+      title: 'Booking rescheduled',
+      body: 'Your booking for ${b.hallName} has been moved to ${prettyDate(date)}, $timeSlot.',
+      type: 'reschedule',
+      bookingId: b.id,
+    );
+  }
 
-  Future<void> cancelBooking(String id, {String by = 'user'}) => _bookings.doc(id).update({
-        'status': 'cancelled',
-        'cancelledBy': by,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+  Future<void> cancelBooking(Booking b, {String by = 'user'}) async {
+    await _bookings.doc(b.id).update({
+      'status': 'cancelled',
+      'cancelledBy': by,
+      'refundAmount': b.amountPaid,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+    final refund = b.amountPaid > 0 ? ' A refund of ${rm(b.amountPaid)} will be processed.' : '';
+    await notify(
+      userId: b.userId,
+      title: by == 'admin' ? 'Booking cancelled by admin' : 'Booking cancelled',
+      body: 'Your booking for ${b.hallName} on ${prettyDate(b.date)} was cancelled.$refund',
+      type: 'cancel',
+      bookingId: b.id,
+    );
+    if (by != 'admin') {
+      await notify(
+        userId: adminsInbox,
+        title: 'Booking cancelled by customer',
+        body: '${b.userName} cancelled ${b.hallName} on ${prettyDate(b.date)}.',
+        type: 'cancel',
+        bookingId: b.id,
+      );
+    }
+  }
+
+  /// Demo payment: records the amount paid and returns a transaction id.
+  /// No real money is charged.
+  Future<String> recordPayment(Booking b, {required String method, required double amount}) async {
+    final txn = 'TXN${DateTime.now().millisecondsSinceEpoch}';
+    await _bookings.doc(b.id).update({
+      'amountPaid': FieldValue.increment(amount),
+      'paymentMethod': method,
+      'transactionId': txn,
+      'paidAt': FieldValue.serverTimestamp(),
+    });
+    await notify(
+      userId: b.userId,
+      title: 'Payment received',
+      body: '${rm(amount)} paid via $method for ${b.hallName}. Ref: $txn',
+      type: 'payment',
+      bookingId: b.id,
+    );
+    await notify(
+      userId: adminsInbox,
+      title: 'Payment received',
+      body: '${b.userName} paid ${rm(amount)} for ${b.hallName}.',
+      type: 'payment',
+      bookingId: b.id,
+    );
+    return txn;
+  }
 
   Stream<List<Booking>> userBookings(String uid) => _bookings
       .where('userId', isEqualTo: uid)
@@ -99,20 +194,66 @@ class FirestoreService {
       .map((s) => s.docs.map(Booking.fromDoc).toList());
 
   Stream<List<Booking>> allBookings() => _bookings.snapshots().map((s) {
-        final list = s.docs.map(Booking.fromDoc).toList();
-        list.sort((a, b) => b.date.compareTo(a.date));
-        return list;
-      });
+    final list = s.docs.map(Booking.fromDoc).toList();
+    list.sort((a, b) => b.date.compareTo(a.date));
+    return list;
+  });
 
   // ----------------------------------------------------------------- Users
 
   Stream<List<AppUser>> usersStream() => _users.snapshots().map((s) {
-        final list = s.docs.map(AppUser.fromDoc).toList();
-        list.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
-        return list;
-      });
+    final list = s.docs.map(AppUser.fromDoc).toList();
+    list.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    return list;
+  });
 
   Future<void> updateUser(String uid, Map<String, dynamic> data) => _users.doc(uid).update(data);
+
+  // --------------------------------------------------------- Notifications
+
+  /// Shared inbox id for notices shown to all admins.
+  static const String adminsInbox = 'admins';
+
+  Future<void> notify({
+    required String userId,
+    required String title,
+    required String body,
+    String type = 'info',
+    String bookingId = '',
+  }) async {
+    try {
+      await _notifications.add({
+        'userId': userId,
+        'title': title,
+        'body': body,
+        'type': type,
+        'bookingId': bookingId,
+        'read': false,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    } catch (_) {
+      // A failed notice must never block the booking itself.
+    }
+  }
+
+  Stream<List<AppNotification>> notificationsStream(String userId) => _notifications
+      .where('userId', isEqualTo: userId)
+      .snapshots()
+      .map((s) {
+    final list = s.docs.map(AppNotification.fromDoc).toList();
+    list.sort((a, b) => (b.createdAt ?? DateTime.now()).compareTo(a.createdAt ?? DateTime.now()));
+    return list;
+  });
+
+  Future<void> markNotificationRead(String id) => _notifications.doc(id).update({'read': true});
+
+  Future<void> markAllNotificationsRead(List<AppNotification> items) async {
+    final batch = _db.batch();
+    for (final n in items.where((n) => !n.read)) {
+      batch.update(_notifications.doc(n.id), {'read': true});
+    }
+    await batch.commit();
+  }
 
   // ----------------------------------------------------------- Sample data
 

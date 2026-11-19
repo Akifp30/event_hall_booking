@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
 import '../../widgets/common.dart';
+import '../notifications_screen.dart';
 
 /// Admin home: quick stats and links to management pages.
 class AdminDashboardScreen extends StatefulWidget {
@@ -55,7 +56,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Admin Dashboard', style: TextStyle(fontWeight: FontWeight.bold)),
-        actions: [IconButton(tooltip: 'Logout', icon: const Icon(Icons.logout), onPressed: _logout)],
+        actions: [
+          const NotificationBell(),
+          IconButton(tooltip: 'Logout', icon: const Icon(Icons.logout), onPressed: _logout),
+        ],
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),

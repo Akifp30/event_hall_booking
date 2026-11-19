@@ -7,6 +7,7 @@ import '../../providers/booking_draft.dart';
 import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
 import '../../widgets/common.dart';
+import '../notifications_screen.dart';
 
 /// "My Bookings": view, edit (re-enter pre-filled flow) and cancel.
 class MyBookingsScreen extends StatefulWidget {
@@ -44,7 +45,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
     );
     if (!ok || !mounted) return;
     try {
-      await context.read<FirestoreService>().cancelBooking(b.id);
+      await context.read<FirestoreService>().cancelBooking(b);
       if (mounted) showSnack(context, 'Booking cancelled.');
     } catch (e) {
       if (mounted) showSnack(context, 'Failed to cancel: $e');
@@ -62,6 +63,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
             icon: const Icon(Icons.arrow_back),
             onPressed: () => context.canPop() ? context.pop() : context.go('/home'),
           ),
+          actions: const [NotificationBell()],
           bottom: const TabBar(tabs: [Tab(text: 'Upcoming'), Tab(text: 'History')]),
         ),
         body: StreamBuilder<List<Booking>>(

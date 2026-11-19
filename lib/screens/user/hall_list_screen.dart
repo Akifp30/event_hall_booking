@@ -6,6 +6,7 @@ import '../../models/hall.dart';
 import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
 import '../../widgets/common.dart';
+import '../notifications_screen.dart';
 
 /// User home: list of halls with search, capacity filter and sorting.
 class HallListScreen extends StatefulWidget {
@@ -76,6 +77,7 @@ class _HallListScreenState extends State<HallListScreen> {
           ],
         ),
         actions: [
+          const NotificationBell(),
           IconButton(
             tooltip: 'My Bookings',
             icon: const Icon(Icons.event_note_outlined),
