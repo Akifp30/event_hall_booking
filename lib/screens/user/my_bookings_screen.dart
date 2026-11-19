@@ -6,10 +6,11 @@ import '../../models/booking.dart';
 import '../../providers/booking_draft.dart';
 import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
+import '../../utils/format.dart';
 import '../../widgets/common.dart';
 import '../notifications_screen.dart';
 
-/// "My Bookings": view, edit (re-enter pre-filled flow) and cancel.
+/// "My Bookings": view, edit (re-enter pre-filled flow), cancel and pay.
 class MyBookingsScreen extends StatefulWidget {
   const MyBookingsScreen({super.key});
 
@@ -39,7 +40,8 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
     final ok = await confirmDialog(
       context,
       title: 'Cancel booking?',
-      message: 'Your booking for ${b.hallName} will be cancelled. This cannot be undone.',
+      message: 'Your booking for ${b.hallName} will be cancelled. This cannot be undone.'
+          '${b.amountPaid > 0 ? '\n\nA refund of ${rm(b.amountPaid)} will be processed.' : ''}',
       confirmText: 'Cancel booking',
       destructive: true,
     );
@@ -104,19 +106,24 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
           booking: b,
           actions: editable
               ? [
-                  TextButton.icon(
-                    onPressed: () => _cancel(b),
-                    icon: const Icon(Icons.close),
-                    label: const Text('Cancel'),
-                    style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error),
-                  ),
-                  const SizedBox(width: 4),
-                  FilledButton.tonalIcon(
-                    onPressed: () => _edit(b),
-                    icon: const Icon(Icons.edit_outlined),
-                    label: const Text('Edit'),
-                  ),
-                ]
+            TextButton.icon(
+              onPressed: () => _cancel(b),
+              icon: const Icon(Icons.close),
+              label: const Text('Cancel'),
+              style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error),
+            ),
+            FilledButton.tonalIcon(
+              onPressed: () => _edit(b),
+              icon: const Icon(Icons.edit_outlined),
+              label: const Text('Edit'),
+            ),
+            if (b.needsPayment)
+              FilledButton.icon(
+                onPressed: () => context.push('/pay/${b.id}'),
+                icon: const Icon(Icons.payments_outlined),
+                label: const Text('Pay'),
+              ),
+          ]
               : const [],
         );
       },

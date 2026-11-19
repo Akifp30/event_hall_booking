@@ -16,6 +16,7 @@ import 'screens/user/booking_date_screen.dart';
 import 'screens/user/booking_summary_screen.dart';
 import 'screens/user/hall_list_screen.dart';
 import 'screens/user/my_bookings_screen.dart';
+import 'screens/user/payment_screen.dart';
 import 'services/auth_service.dart';
 
 /// All app routes + role-based access control.
@@ -33,12 +34,13 @@ GoRouter createRouter(AuthService auth) {
           loc.startsWith('/book') ||
           loc.startsWith('/my-bookings') ||
           loc.startsWith('/notifications') ||
+          loc.startsWith('/pay') ||
           loc.startsWith('/admin');
 
       if (!loggedIn && needsLogin) return '/login';
       if (loggedIn && (onAuthPage || loc == '/')) return auth.isAdmin ? '/admin' : '/home';
       if (loggedIn && loc.startsWith('/admin') && !auth.isAdmin) return '/home';
-      if (loggedIn && auth.isAdmin && (loc.startsWith('/book') || loc.startsWith('/home'))) {
+      if (loggedIn && auth.isAdmin && (loc.startsWith('/book') || loc.startsWith('/home') || loc.startsWith('/pay'))) {
         return '/admin';
       }
       return null;
@@ -60,6 +62,10 @@ GoRouter createRouter(AuthService auth) {
       GoRoute(path: '/book/summary', builder: (context, state) => const BookingSummaryScreen()),
       GoRoute(path: '/my-bookings', builder: (context, state) => const MyBookingsScreen()),
       GoRoute(path: '/notifications', builder: (context, state) => const NotificationsScreen()),
+      GoRoute(
+        path: '/pay/:id',
+        builder: (context, state) => PaymentScreen(bookingId: state.pathParameters['id']!),
+      ),
 
       // Admin
       GoRoute(path: '/admin', builder: (context, state) => const AdminDashboardScreen()),

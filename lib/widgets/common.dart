@@ -286,9 +286,15 @@ class BookingCard extends StatelessWidget {
               IconText(icon: Icons.add_box_outlined, text: b.addons.map((a) => a.name).join(', ')),
             ],
             const SizedBox(height: 4),
-            IconText(icon: Icons.payments_outlined, text: rm(b.totalPrice)),
+            IconText(icon: Icons.payments_outlined, text: '${rm(b.totalPrice)}  •  ${b.paymentLabel}'),
             if (actions.isNotEmpty)
-              Row(mainAxisAlignment: MainAxisAlignment.end, children: actions)
+              Padding(
+                padding: const EdgeInsets.only(top: 8, bottom: 4),
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: Wrap(spacing: 8, runSpacing: 4, alignment: WrapAlignment.end, children: actions),
+                ),
+              )
             else
               const SizedBox(height: 8),
           ],

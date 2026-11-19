@@ -61,28 +61,40 @@ class _BookingSummaryScreenState extends State<BookingSummaryScreen> {
       );
 
       final editing = draft.isEditing;
+      final balance = draft.balanceAfterSave;
+      final String id;
       if (editing) {
         await db.updateBooking(booking);
+        id = booking.id;
       } else {
-        await db.createBooking(booking);
+        id = await db.createBooking(booking);
       }
       if (!mounted) return;
 
+      final payNext = balance > 0.009;
       await showDialog<void>(
         context: context,
+        barrierDismissible: false,
         builder: (ctx) => AlertDialog(
           icon: const Icon(Icons.check_circle, color: Colors.green, size: 56),
           title: Text(editing ? 'Booking updated!' : 'Booking confirmed!'),
-          content: Text(editing
-              ? 'Your booking has been updated. New total: ${rm(booking.totalPrice)}.'
-              : 'Your booking for ${hall.name} is confirmed.'),
+          content: Text(
+            payNext
+                ? 'Your slot for ${hall.name} is reserved.\nAmount to pay: ${rm(balance)}.'
+                : editing
+                ? 'Your booking has been updated. New total: ${rm(booking.totalPrice)}.'
+                : 'Your booking for ${hall.name} is confirmed.',
+          ),
           actions: [
-            FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('View my bookings')),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(payNext ? 'Continue to payment' : 'View my bookings'),
+            ),
           ],
         ),
       );
       if (!mounted) return;
-      context.go('/my-bookings');
+      context.go(payNext ? '/pay/$id' : '/my-bookings');
       draft.clear();
     } catch (e) {
       if (mounted) showSnack(context, 'Failed to save booking: $e');
@@ -173,7 +185,7 @@ class _BookingSummaryScreenState extends State<BookingSummaryScreen> {
       bottomNavigationBar: TotalBar(
         label: 'Final price',
         total: draft.total,
-        buttonText: draft.isEditing ? 'Update booking' : 'Confirm booking',
+        buttonText: draft.isEditing ? 'Update booking' : 'Confirm & pay',
         busy: _busy,
         onPressed: _confirm,
       ),
@@ -197,7 +209,7 @@ class _BookingSummaryScreenState extends State<BookingSummaryScreen> {
   }
 
   Widget _price(String label, double value) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 3),
-        child: Row(children: [Expanded(child: Text(label)), Text(rm(value))]),
-      );
+    padding: const EdgeInsets.symmetric(vertical: 3),
+    child: Row(children: [Expanded(child: Text(label)), Text(rm(value))]),
+  );
 }
