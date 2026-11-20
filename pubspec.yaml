@@ -42,6 +42,7 @@ dependencies:
   table_calendar: ^3.3.0
   intl: ^0.20.3
   cached_network_image: ^4.0.7
+  google_fonts: ^9.0.0
 
 dev_dependencies:
   flutter_test:
